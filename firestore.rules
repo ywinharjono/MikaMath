@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (required)
+    //   - email: string (required)
+    //   - role: string (required, 'parent' | 'child')
+    //   - childName: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: progress
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required)
+    //   - subject: string (required, 'arithmetic' | 'algebra' | 'geometry')
+    //   - level: number (required)
+    //   - score: number (required)
+    //   - lastUpdated: timestamp (required)
+    //
+    // Collection: chats
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required)
+    //   - role: string (required, 'user' | 'model')
+    //   - content: string (required)
+    //   - timestamp: timestamp (required)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "ywinharjono@archietechs.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasOnly(['uid', 'displayName', 'email', 'role', 'childName', 'unlockedCharacters', 'badges', 'createdAt']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['parent', 'child'] &&
+             (data.role == 'child' || ('childName' in data && data.childName is string)) &&
+             (!('unlockedCharacters' in data) || data.unlockedCharacters is list) &&
+             (!('badges' in data) || data.badges is list);
+    }
+
+    function isValidProgress(data) {
+      return data.keys().hasOnly(['userId', 'subject', 'level', 'score', 'lastUpdated']) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.subject in ['arithmetic', 'algebra', 'geometry'] &&
+             data.level is number && data.level >= 0 &&
+             data.score is number && data.score >= 0;
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasOnly(['userId', 'role', 'content', 'timestamp']) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.role in ['user', 'model'] &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 5000;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && 
+                    request.resource.data.role == resource.data.role;
+    }
+
+    match /progress/{progressId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidProgress(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidProgress(request.resource.data);
+    }
+
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidChat(request.resource.data);
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

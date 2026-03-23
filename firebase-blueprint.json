@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a parent or child user profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "role": { "type": "string", "enum": ["parent", "child"], "description": "The user's role." },
+        "childName": { "type": "string", "description": "The name of the child (if parent)." },
+        "unlockedCharacters": { "type": "array", "items": { "type": "string" }, "description": "List of unlocked character IDs." },
+        "badges": { "type": "array", "items": { "type": "string" }, "description": "List of earned badge IDs." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user profile was created." }
+      },
+      "required": ["uid", "displayName", "email", "role"]
+    },
+    "Progress": {
+      "title": "Progress",
+      "description": "Tracks the child's learning progress in different subjects.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the child user." },
+        "subject": { "type": "string", "enum": ["arithmetic", "algebra", "geometry"], "description": "The math subject." },
+        "level": { "type": "integer", "description": "The current level reached." },
+        "score": { "type": "integer", "description": "The total score earned." },
+        "lastUpdated": { "type": "string", "format": "date-time", "description": "When the progress was last updated." }
+      },
+      "required": ["userId", "subject", "level", "score"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Represents a message in the chat history with the AI tutor.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user." },
+        "role": { "type": "string", "enum": ["user", "model"], "description": "The sender's role." },
+        "content": { "type": "string", "description": "The message content." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the message was sent." }
+      },
+      "required": ["userId", "role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles for parents and children."
+    },
+    "/progress/{progressId}": {
+      "schema": "Progress",
+      "description": "Learning progress records for children."
+    },
+    "/chats/{chatId}": {
+      "schema": "ChatMessage",
+      "description": "Chat history for each user with the AI tutor."
+    }
+  }
+}
